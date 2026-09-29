@@ -1,0 +1,115 @@
+$.fn.dataTable.ext.errMode = 'throw';
+$('#@Model.TableId').on('error.dt', function(e, settings, techNote, message){
+    var columnCount = settings.aoColumns.length;;
+    var errorRow = `<tr class="error-row"><td colspan="${columnCount}" style="text-align: center; color: red; background-color: #fff0f0;">
+        <strong>An error occurred:</strong> Failed to load data from the server.</td></tr>`;
+
+    $(this).find('tbody').html(errorRow);
+
+    if (settings.oFeatures.bProcessing) {
+        $(`#${settings.sTableId}_processing`).hide();
+    }
+});
+
+$('#@Model.TableId').DataTable({
+    processing: true,
+    serverSide: true,
+    searchDelay: 500,
+    ajax: {
+        url: '@Model.ApiUrl',
+        type: 'POST',
+        global: false,
+        data: function(d){
+            let filterData = $(`#${collapseFilterId}`).find(':input').serializeArray();
+            $.each(filterData, function (i, field) {
+                if (field.value !== "" && field.value !== null && field.value !== undefined) {
+                    d[`AdditionalFilters[${field.name}]`] = field.value;
+                }
+            });
+        }
+    },
+    columns: columnsConfig,
+    drawCallback: function (settings) {
+        $('.tooltip').remove();
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            if (!bootstrap.Tooltip.getInstance(tooltipTriggerEl)) {
+                new bootstrap.Tooltip(tooltipTriggerEl);
+            }
+        });
+    },
+    dom: "<'row mb-3'<'col-md-6 d-flex align-items-center gap-3'l f><'col-md-6 d-flex align-items-end justify-content-end custom-right-panel gap-2'>>" +
+         "<'row'<'col-sm-12 custom-filter-panel'>>" +
+         "<'row'<'col-sm-12'tr>>" +
+         "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7 d-flex justify-content-end'p>>",
+    language: {
+        lengthMenu: "Show _MENU_",
+        search: "Search",
+        emptyTable: "Search",
+        searchPlaceholder: "@Model.SearchPlaceHolder",
+        processing: `
+            <div class="d-flex align-items-center justify-content-center text-primary gap-2">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <span class="fw-semibold">Loading data...</span>
+            </div>
+        `
+    },
+    search: {
+        return: true
+    },
+    initComplete: function () {
+        const api = this.api();
+        let rightPanelHtml = '';
+        
+        var filterElements = getFilterElement();
+        if (filterElements != null) {
+            rightPanelHtml += filterElements.btnFilterElement;
+            $(this).closest('.dt-container').find('.custom-filter-panel').html(filterElements.collapseFilter);
+            $(`#${collapseFilterId}`).on('show.bs.collapse', () =>{
+                console.log('show')
+            })
+             $(`#${collapseFilterId}`).on('shown.bs.collapse', () =>{
+                console.log('shown')
+            })
+             $(`#${collapseFilterId}`).on('hide.bs.collapse', () =>{
+                console.log('hide')
+            })
+            $(`#${collapseFilterId}`).on('hidden.bs.collapse', () =>{
+                console.log('hidden')
+            })
+        }
+
+        @if (!string.IsNullOrEmpty(Model.CustomButtonHtml))
+        {
+            <text>
+                rightPanelHtml += `@Html.Raw(Model.CustomButtonHtml)`;
+            </text>
+        }
+    
+        $(this).closest('.dt-container').find('.custom-right-panel').html(rightPanelHtml);
+
+        $(`#${collapseFilterId} #btnClearFilter`).off('click', '#btnClearFilter').on('click', function() {
+            $(`#${formFilterId}`)[0].reset();
+        });
+
+        $(`#${collapseFilterId}`).off('click', '#btnSearchFilter').on('click', '#btnSearchFilter', function(e) {
+            e.preventDefault();
+            api.draw();
+        });
+
+        // api.on('xhr.dt', function (e, settings, json, xhr) {
+        //     // Cek apakah ada global search atau kustom filter yang sedang aktif
+        //     let globalSearch = settings.oPreviousSearch.sSearch;
+        //     let hasCustomFilter = window.hasActiveFilter === true;
+
+        //     if (json && json.recordsTotal > 0 && json.data.length === 0) {
+        //         // Jika data aslinya ada, tapi karena difilter jadi kosong,
+        //         // kita paksa ubah teks zeroRecords lewat setting bahasa runtime
+        //         api.settings()[0].oLanguage.sZeroRecords = "Tidak ada data yang cocok dengan pencarian Anda. Silakan coba kata kunci lain.";
+        //     } else if (json && json.recordsTotal === 0) {
+        //         // Jika tabel memang kosong dari awal
+        //         api.settings()[0].oLanguage.sEmptyTable = "Belum ada data tersedia di sistem.";
+        //     }
+        // });
+    },
+});
